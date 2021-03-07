@@ -58,7 +58,11 @@ TEMPLATE = """
     <ul id="list" data-role="listview" style="list-style-type:disc;">
         {% for handshake in handshakes %}
             <li class="file">
-                <a href="/plugins/handshakes-dl/{{handshake}}">{{handshake}}</a>
+                {% if handshake[1] == "" %}
+                <a href="/plugins/handshakes-dl/{{handshake[0]}}">{{handshake[0]}}</a>
+                {% else %}
+                <a href="/plugins/handshakes-dl/{{handshake[0]}}" style="color:green">{{handshake[0] + " : " + handshake[1]}}</a>
+                {% endif %}
             </li>
         {% endfor %}
     </ul>
@@ -69,7 +73,7 @@ class HandshakesDL(plugins.Plugin):
     __author__ = 'me@sayakb.com'
     __version__ = '0.2.1'
     __license__ = 'GPL3'
-    __description__ = 'Download handshake captures from web-ui.'
+    __description__ = 'Download hadshake captures from web-ui.'
 
     def __init__(self):
         self.ready = False
@@ -87,10 +91,23 @@ class HandshakesDL(plugins.Plugin):
 
         if path == "/" or not path:
             handshakes = glob.glob(os.path.join(self.config['bettercap']['handshakes'], "*.pcap"))
-            handshakes = [os.path.basename(path)[:-5] for path in handshakes]
-            return render_template_string(TEMPLATE,
-                                    title="Handshakes | " + pwnagotchi.name(),
-                                    handshakes=handshakes)
+            handshakes = {os.path.basename(path)[:-5] for path in handshakes}
+            cracked = glob.glob(os.path.join(self.config['bettercap']['handshakes'], "*.pcap.cracked"))
+            cracked = {os.path.basename(path)[:-13] for path in cracked}
+            handshakes_pswd = []
+            for handshake in handshakes:
+                if handshake in cracked:
+                    with open(self.config['bettercap']['handshakes'] + "/" + handshake + ".pcap.cracked") as f:
+                        pswd = f.readlines()[0]
+                    handshakes_pswd.append((handshake, pswd))
+                else:
+                    handshakes_pswd.append((handshake, ""))
+            try:
+                return render_template_string(TEMPLATE,
+                                        title="Handshakes | " + pwnagotchi.name(),
+                                        handshakes=handshakes_pswd)
+            except BaseException as ba:
+                return str(ba)
 
         else:
             dir = self.config['bettercap']['handshakes']
@@ -99,3 +116,11 @@ class HandshakesDL(plugins.Plugin):
                 return send_from_directory(directory=dir, filename=path+'.pcap', as_attachment=True)
             except FileNotFoundError:
                 abort(404)
+
+if __name__ == "__main__":
+    hdl = HandshakesDL()
+    hdl.ready = True
+    hdl.config = {}
+    hdl.config["bettercap"] = {}
+    hdl.config["bettercap"]['handshakes'] = "handshakes"
+    hdl.on_webhook("/", None)
