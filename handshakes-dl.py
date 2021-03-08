@@ -2,6 +2,7 @@ import logging
 import json
 import os
 import glob
+from datetime import datetime
 
 import pwnagotchi
 import pwnagotchi.plugins as plugins
@@ -58,10 +59,10 @@ TEMPLATE = """
     <ul id="list" data-role="listview" style="list-style-type:disc;">
         {% for handshake in handshakes %}
             <li class="file">
-                {% if handshake[1] == "" %}
-                <a href="/plugins/handshakes-dl/{{handshake[0]}}">{{handshake[0]}}</a>
+                {% if handshake[2] == "" %}
+                <a href="/plugins/handshakes-dl/{{handshake[1]}}">{{"<" + handshake[0] + "> " + handshake[1]}}</a>
                 {% else %}
-                <a href="/plugins/handshakes-dl/{{handshake[0]}}" style="color:green">{{handshake[0] + " : " + handshake[1]}}</a>
+                <a href="/plugins/handshakes-dl/{{handshake[1]}}" style="color:green">{{"<" + handshake[0] + "> " + handshake[1] + " : " + handshake[2]}}</a>
                 {% endif %}
             </li>
         {% endfor %}
@@ -91,17 +92,20 @@ class HandshakesDL(plugins.Plugin):
 
         if path == "/" or not path:
             handshakes = glob.glob(os.path.join(self.config['bettercap']['handshakes'], "*.pcap"))
-            handshakes = {os.path.basename(path)[:-5] for path in handshakes}
+            handshakes.sort(key=lambda x: os.path.getmtime(x))
+            handshakes.reverse()
+            handshakes_date = [(os.path.basename(h)[:-5], datetime.fromtimestamp(os.path.getmtime(h)).strftime('%Y.%m.%d %H-%M-%S')) for h in handshakes]
             cracked = glob.glob(os.path.join(self.config['bettercap']['handshakes'], "*.pcap.cracked"))
             cracked = {os.path.basename(path)[:-13] for path in cracked}
             handshakes_pswd = []
-            for handshake in handshakes:
+
+            for handshake, date in handshakes_date:
                 if handshake in cracked:
                     with open(self.config['bettercap']['handshakes'] + "/" + handshake + ".pcap.cracked") as f:
                         pswd = f.readlines()[0]
-                    handshakes_pswd.append((handshake, pswd))
+                    handshakes_pswd.append((date, handshake, pswd))
                 else:
-                    handshakes_pswd.append((handshake, ""))
+                    handshakes_pswd.append((date, handshake, ""))
             try:
                 return render_template_string(TEMPLATE,
                                         title="Handshakes | " + pwnagotchi.name(),
