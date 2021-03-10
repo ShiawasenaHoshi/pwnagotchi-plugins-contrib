@@ -37,18 +37,18 @@ class QuickDic(plugins.Plugin):
         check = subprocess.run((CMD_CHECK_AIRCRACK_NG), shell=True, stdout=subprocess.PIPE)
         check = check.stdout.decode('utf-8').strip()
         if check != "aircrack-ng <none>":
-            logging.info(f"{LOG_PREFIX} Found {check}")
+            logging.info(f"{LOG_PREFIX}: Found {check}")
         else:
-            logging.warning(f"{LOG_PREFIX} aircrack-ng is not installed!")
+            logging.warning(f"{LOG_PREFIX}: aircrack-ng is not installed!")
 
     def on_handshake(self, agent, filename, access_point, client_station):
         display = agent.view()
         result = subprocess.run((CMD_HS_CONFIRMATION.format(filename=filename)), shell=True, stdout=subprocess.PIPE)
         result = result.stdout.decode('utf-8').translate({ord(c): None for c in string.whitespace})
         if not result:
-            logging.info(f"{LOG_PREFIX} No handshake")
+            logging.info(f"{LOG_PREFIX}: {filename} No handshake")
         else:
-            logging.info(f"{LOG_PREFIX} Handshake confirmed")
+            logging.info(f"{LOG_PREFIX}: {filename} Handshake confirmed")
             result2 = subprocess.run(
                 (CMD_HS_CRACK.format(f_wordlist=self.options['wordlist_folder'], filename=filename, result=result)),
                 shell=True, stdout=subprocess.PIPE)
@@ -57,7 +57,7 @@ class QuickDic(plugins.Plugin):
             if result2 != "KEY NOT FOUND":
                 key = re.search('\[(.*)\]', result2)
                 pwd = str(key.group(1))
-                logging.info(f"{LOG_PREFIX} Pwnd {access_point} : {pwd}")
+                logging.info(f"{LOG_PREFIX}: Pwnd {access_point} : {pwd}")
                 self.text_to_set = f"Pwnd {access_point} : {pwd}"
                 display.update(force=True)
                 plugins.on('cracked', access_point, pwd)
